@@ -6,7 +6,7 @@ TOI visualization plots
 * [code](github.com/jpdeleon/toi-viz)
 
 ## Output
-* jpdeleon.github.io/toi-viz
+* https://jpdeleon.github.io/toi-viz
 
 ## Rationale
 - TOI list is growing quickly and updated frequently
@@ -22,5 +22,5 @@ TOI visualization plots
   - con: html file does not render properly in local browser, except in gh-pages
 - bokeh
 - flask
-- ~~Bokehstreamlit~~ does not output static html
+- ~~streamlit~~ does not output static html
 
