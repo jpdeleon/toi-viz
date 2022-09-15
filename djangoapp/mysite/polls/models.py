@@ -21,3 +21,11 @@ class Choice(models.Model):
     votes = models.IntegerField(default=0)
     def __str__(self):
         return self.choice_text
+
+#added for media
+class Image(models.Model):
+    name= models.CharField(max_length=500)
+    imagefile= models.FileField(upload_to='images/', null=True, verbose_name="")
+
+    def __str__(self):
+        return self.name + ": " + str(self.imagefile)
