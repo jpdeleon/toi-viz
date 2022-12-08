@@ -14,6 +14,7 @@ import altair as alt
 
 outpath = '../index.html'
 DATA_PATH = '../data/'
+EXOFOP_URL = 'https://exofop.ipac.caltech.edu/tess/target.php?'
 
 def get_tois(
     clobber=False,
@@ -102,6 +103,18 @@ def get_tois(
     return d.sort_values("TOI")
 
 VIZIER_KEYS_CLUSTER_CATALOG = {
+    # 3794 open clusters parameters (Hao+, 2021)
+    "Hao2022": "J/A+A/660/A4",
+    # c.f. Evolution of the local spiral structure of the Milky Way revealedby open clusters
+    "Hao2021": "J/A+A/652/A102",
+    # 1656 new star clusters found in Gaia EDR3
+    # "He2022c": "https://ui.adsabs.harvard.edu/abs/2022arXiv220908504H/abstract",
+    # 886 Clusters within 1.2 kpc of the Sun
+    "He2022b": "J/ApJS/262/7",
+    # 541 new open cluster candidates
+    "He2022a": "J/ApJS/260/8",
+    # 628 new open clusters found with OCfinder
+    "CastroGinard2022": "J/A+A/661/A118",
     # 570 new open clusters in the Galactic disc
     "CastroGinard2020": "J/A+A/635/A45",
     # 1481 clusters and their members
@@ -197,7 +210,7 @@ class CatalogDownloader:
                     args.append(f"{key}={val}")
         args = ", ".join(args)
         return f"{type(self).__name__}({args})"
-    
+
 class ClusterCatalog(CatalogDownloader):
     def __init__(
         self,
@@ -230,7 +243,7 @@ class ClusterCatalog(CatalogDownloader):
         self.catalog_list = CATALOG_LIST
         self.all_clusters = None  # self.query_catalog(return_members=False)
         self.all_members = None
-        
+
         if self.data_loc.exists():  # & len(files)<2:
             if self.clobber:
                 _ = self.get_tables_from_vizier(
@@ -240,6 +253,8 @@ class ClusterCatalog(CatalogDownloader):
             _ = self.get_tables_from_vizier(
                 row_limit=-1, save=True, clobber=self.clobber
             )
+        if self.verbose:
+                print("Vizier URL:", self.get_vizier_url())
 
     def query_catalog(self, name=None, return_members=False, **kwargs):
         """Query catalogs
@@ -271,7 +286,44 @@ class ClusterCatalog(CatalogDownloader):
         self.catalog_name = name if name is not None else self.catalog_name
         if self.verbose:
             print(f"Using {self.catalog_name} catalog.")
-        if self.catalog_name == "Bouma2019":
+
+        if self.catalog_name == "Hao2022":
+            if return_members:
+                df_mem = self.get_members_Hao2022()
+                self.all_members = df_mem
+                return df_mem
+            else:
+                df = self.get_clusters_Hao2022()
+                self.all_clusters = df
+                return df
+        elif self.catalog_name == "He2022a":
+            if return_members:
+                df_mem = self.get_members_He2022a()
+                self.all_members = df_mem
+                return df_mem
+            else:
+                df = self.get_clusters_He2022a()
+                self.all_clusters = df
+                return df
+        elif self.catalog_name == "He2022b":
+            if return_members:
+                df_mem = self.get_members_He2022b()
+                self.all_members = df_mem
+                return df_mem
+            else:
+                df = self.get_clusters_He2022b()
+                self.all_clusters = df
+                return df
+        elif self.catalog_name == "CastroGinard2022":
+            if return_members:
+                df_mem = self.get_members_CastroGinard2022()
+                self.all_members = df_mem
+                return df_mem
+            else:
+                df = self.get_clusters_CastroGinard2022()
+                self.all_clusters = df
+                return df
+        elif self.catalog_name == "Bouma2019":
             if return_members:
                 df_mem = self.get_members_Bouma2019()
                 self.all_members = df_mem
@@ -316,7 +368,7 @@ class ClusterCatalog(CatalogDownloader):
                 df = self.get_clusters_CantatGaudin2018()
                 self.all_clusters = df
                 return df
-            
+
     def get_clusters_CantatGaudin2020(self):
         """Cantat-Gaudin et al. 2020:
         """
@@ -360,6 +412,217 @@ class ClusterCatalog(CatalogDownloader):
                 "Plx": "parallax",
                 "Gmag": "phot_g_mean_mag",
                 "BP-RP": "bp_rp",
+            }
+        )
+        return df
+
+    def get_clusters_Hao2022(self):
+        """Hao+2022: Gaia EDR3 new Galactic open clusters
+        https://ui.adsabs.harvard.edu/abs/2022A%26A...660A...4H/abstract
+
+        tab1: (c)Mean parameters for the reported open clusters (704 rows)
+
+        c.f. Hao+2021: Evolution of the local spiral structure of the Milky Way revealed by open clusters
+        Parameters for 3794 clusters based on the Gaia EDR3 (3794 rows)
+        """
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        df = _read_clean_df(fp)
+        df = df.rename(
+            columns={
+                "age": "log10_age",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "plx": "parallax",
+                "e_plx": "e_parallax",
+                "pmRA": "pmra",
+                "e_pmRA": "e_pmra",
+                "pmDE": "pmdec",
+                "e_pmDE": "e_pmdec",
+            }
+        ).reset_index(drop=True)
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
+        return df
+
+    def get_members_Hao2022(self):
+        """Hao+2022:
+        https://ui.adsabs.harvard.edu/abs/2022A%26A...660A...4H/abstract
+
+        tab: (c)Members for the reported open clusters (19425 rows)
+        """
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        df = _read_clean_df(fp)
+        df = df.rename(
+            columns={
+                # "GaiaEDR3": "source_id_edr3",
+                "GaiaEDR3": "source_id",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "plx": "parallax",
+                "e_plx": "e_parallax",
+                "pmRA": "pmra",
+                "e_pmRA": "e_pmra",
+                "pmDE": "pmdec",
+                "e_pmDE": "e_pmdec",
+                "RV": "radial_velocity",
+                "e_RV": "e_radial_velocity",
+            }
+        ).reset_index(drop=True)
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
+        return df
+
+    def get_clusters_He2022b(self):
+        """He+2022b: 886 Clusters within 1.2 kpc of the Sun
+        https://ui.adsabs.harvard.edu/abs/2022ApJS..262....7H/abstract
+
+        tab1: Parameters for the 886 objects (886 rows)
+        """
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        df = _read_clean_df(fp)
+        df = df.rename(
+            columns={
+                "logAge": "log10_age",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "plx": "parallax",
+                "s_plx": "e_parallax",
+                "pmRA": "pmra",
+                "e_pmRA": "e_pmra",
+                "pmDE": "pmdec",
+                "e_pmDE": "e_pmdec",
+            }
+        ).reset_index(drop=True)
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
+        return df
+
+    def get_members_He2022b(self):
+        """He+2022b: 886 Clusters within 1.2 kpc of the Sun
+        https://ui.adsabs.harvard.edu/abs/2022yCat..22620007H/abstract
+
+        tab1: Gaia EDR3 parameters of the member stars (134192 rows)
+        """
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        df = _read_clean_df(fp)
+        df = df.rename(
+            columns={
+                # "GaiaEDR3": "source_id_edr3",
+                "GaiaEDR3": "source_id",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "plx": "parallax",
+                "e_plx": "e_parallax",
+                "pmRA": "pmra",
+                "e_pmRA": "e_pmra",
+                "pmDE": "pmdec",
+                "e_pmDE": "e_pmdec",
+                # "RV": "radial_velocity",
+                # "e_RV": "e_radial_velocity"
+            }
+        ).reset_index(drop=True)
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
+        return df
+
+    def get_clusters_He2022a(self):
+        """He+2022: New Open-cluster Candidates Found in the Galactic Disk Using Gaia DR2/EDR3 Data
+        https://ui.adsabs.harvard.edu/abs/2022ApJS..260....8H/abstract
+
+
+        tab1: Parameters of median astrometric values and isochrone fits for 541 new open cluster candidates (541 rows)
+        """
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        df = _read_clean_df(fp)
+        df = df.rename(
+            columns={
+                "logAge": "log10_age",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "Plx": "parallax",
+                "s_Plx": "e_parallax",
+                "pmRA": "pmra",
+                "s_pmRA": "e_pmra",
+                "pmDE": "pmdec",
+                "s_pmDE": "e_pmdec",
+            }
+        ).reset_index(drop=True)
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
+        return df
+
+    def get_members_He2022a(self):
+        """He+2022: New Open-cluster Candidates Found in the Galactic Disk Using Gaia DR2/EDR3 Data
+        https://ui.adsabs.harvard.edu/abs/2022ApJS..260....8H/abstract
+
+        tab2: Member stars for 541 new OCCs (66468 rows)
+        """
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        df = _read_clean_df(fp)
+        df = df.rename(
+            columns={
+                # "GaiaEDR3": "source_id_edr3",
+                "GaiaEDR3": "source_id",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "Plx": "parallax",
+                "e_Plx": "e_parallax",
+                "pmRA": "pmra",
+                "e_pmRA": "e_pmra",
+                "pmDE": "pmdec",
+                "e_pmDE": "e_pmdec",
+                "RV": "radial_velocity",
+                "e_RV": "e_radial_velocity",
+            }
+        ).reset_index(drop=True)
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
+        return df
+
+    def get_clusters_CastroGinard2022(self):
+        """Castro-Ginard et al. 2022: Hunting for open clusters in Gaia EDR3: 628 new open clusters found with OCfinder
+        https://ui.adsabs.harvard.edu/abs/2022A%26A...661A.118C/abstract
+
+        tab1: Mean parameters for the reported UBC clusters (628 rows)
+        """
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab0.txt")
+        df = _read_clean_df(fp)
+        df = df.rename(
+            columns={
+                "RA_ICRS": "raJ2015",
+                "s_RA_ICRS": "e_raJ2015",
+                "DE_ICRS": "decJ2015",
+                "s_DE_ICRS": "e_decJ2015",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "plx": "parallax",
+                "s_plx": "e_parallax",
+                "pmRA": "pmra",
+                "s_pmRA": "e_pmra",
+                "pmDE": "pmdec",
+                "s_pmDE": "e_pmdec",
+                "RV": "radial_velocity",
+                "s_RV": "e_radial_velocity",
+            }
+        )
+        # add distance
+        df["distance"] = Distance(parallax=df.parallax.values * u.mas).pc
+        return df
+
+    def get_members_CastroGinard2022(self):
+        """Castro-Ginard et al. 2022:
+        https://ui.adsabs.harvard.edu/abs/2022A%26A...661A.118C/abstract
+
+        tab2: Members for the reported UBC clusters (25466 rows)
+        """
+        fp = Path(self.data_loc, f"{self.catalog_name}_tab1.txt")
+        df = _read_clean_df(fp)
+        df = df.rename(
+            columns={
+                # "GaiaEDR3": "source_id_edr3",
+                "GaiaEDR3": "source_id",
+                "RA_ICRS": "raJ2015",
+                "DE_ICRS": "decJ2015",
+                "_RA.icrs": "ra",
+                "_DE.icrs": "dec",
+                "plx": "parallax",
+                "pmRA": "pmra",
+                "pmDE": "pmdec",
+                "Source": "source_id",
             }
         )
         return df
@@ -410,7 +673,15 @@ class ClusterCatalog(CatalogDownloader):
             }
         )
         return df
-    
+
+def _read_clean_df(fp):
+    tab = Table.read(fp, format="ascii")
+    df = tab.to_pandas()
+    df = df.applymap(
+        lambda x: x.decode("ascii") if isinstance(x, bytes) else x
+    )
+    return df
+
 def _decode_n_drop(df, columns):
     """
     columns : list of columns to drop
@@ -424,16 +695,113 @@ def _decode_n_drop(df, columns):
     return df
 
 def make_exofop_url(ticid):
-    url="https://exofop.ipac.caltech.edu/tess/target.php?"
-    return url + urlencode({'id': ticid})
+    return EXOFOP_URL + urlencode({'id': ticid})
+
+def plot_catalog(df, width=800, height=400):
+    chart = (
+        alt.Chart(df)
+        .mark_point(color="red", clip=True)
+        .encode(
+            x='ra:Q',
+            y='dec:Q',
+            # x=alt.X(
+            #     "ra:Q",
+            #     axis=alt.Axis(title="RA"),
+            #     scale=alt.Scale(domain=(0, 360)),
+            # ),
+            # y=alt.Y(
+            #     "dec:Q",
+            #     axis=alt.Axis(title="Dec"),
+            #     scale=alt.Scale(domain=(-90, 90)),
+            # ),
+            tooltip=[
+                "Cluster:N",
+                "distance:Q",
+                "parallax:Q",
+                "pmra:Q",
+                "pmdec:Q",
+                "Nstars:Q",
+            ],
+        )
+        .properties(width=width, height=height)
+        .interactive()
+        )
+    return chart
+
+def plot_tois(df, width=800, height=400):
+    chart = (
+        alt.Chart(df, title="TOI")
+        # .transform_calculate(
+        #     url = EXOFOP_URL+"id="+alt.datum.TIC_ID
+        # )
+        .mark_point(color="black", clip=True)
+        .encode(
+            x='RA:Q',
+            y='Dec:Q',
+            # x = alt.X(
+            #     "RA:Q",
+            #     axis=alt.Axis(title="RA"),
+            #     scale=alt.Scale(domain=(0, 360)),
+            # ),
+            # y = alt.Y(
+            #     "Dec:Q",
+            #     axis=alt.Axis(title="Dec"),
+            #     scale=alt.Scale(domain=(-90, 90)),
+            # ),
+            href='url',
+            tooltip = [
+                "TOI:Q",
+                "TIC ID:Q",
+                "url:N",
+                "Stellar Distance (pc):Q",
+                "PM RA (mas/yr):Q",
+                "PM Dec (mas/yr):Q",
+            ],
+        )
+        .properties(width=width, height=height)
+        .interactive()
+    )
+    return chart
+
+def plot_clusters(df, width=800, height=400):
+    chart = (
+        alt.Chart(df)
+        .mark_circle(clip=True)
+        .encode(
+            # x="ra:Q",
+            # y="dec:Q",
+            x = alt.X(
+                "ra:Q",
+                axis=alt.Axis(title="RA"),
+                scale=alt.Scale(domain=(0, 360)),
+            ),
+            y = alt.Y(
+                "dec:Q",
+                axis=alt.Axis(title="Dec"),
+                scale=alt.Scale(domain=(-90, 90)),
+            ),
+            color="Cluster:N",
+            tooltip=[
+                "source_id:O",
+                "parallax:Q",
+                "pmra:Q",
+                "pmdec:Q",
+                "phot_g_mean_mag:Q",
+            ],
+        )
+        .properties(width=width, height=height)
+        .interactive()
+    )
+    return chart
 
 def plot_interactive(
-    catalog_name="CantatGaudin2020",
-    min_parallax=1.5,
-    thin=10,
-    width=800,
-    height=400,
-):
+        catalog_name="CantatGaudin2020",
+        clobber_toi=False,
+        min_parallax=1.5,
+        thin=10,
+        width=800,
+        height=400,
+    ):
     """show altair plots of TOI and clusters
 
     Parameters
@@ -458,72 +826,17 @@ def plot_interactive(
     df0 = df0.loc[idx]
     df0["distance"] = Distance(parallax=df0["parallax"].values * u.mas).pc
     # plot catalog
-    chart0 = (
-        alt.Chart(df0)
-        .mark_point(color="red")
-        .encode(
-            x=alt.X(
-                "ra:Q",
-                axis=alt.Axis(title="RA"),
-                scale=alt.Scale(domain=[0, 360]),
-            ),
-            y=alt.Y(
-                "dec:Q",
-                axis=alt.Axis(title="Dec"),
-                scale=alt.Scale(domain=[-90, 90]),
-            ),
-            tooltip=[
-                "Cluster:N",
-                "distance:Q",
-                "parallax:Q",
-                "pmra:Q",
-                "pmdec:Q",
-                "Nstars:Q",
-            ],
-        )
-        .properties(width=width, height=height)
-        .interactive()
-    )
+    chart0 = plot_catalog(df0, width=width, height=height)
 
     # get TOI list
-    toi = get_tois(verbose=False, clobber=False)
+    toi = get_tois(verbose=False, clobber=clobber_toi)
     toi["TIC_ID"] = toi["TIC ID"]
     toi["RA"] = Angle(toi["RA"].values, unit="hourangle").deg
     toi["Dec"] = Angle(toi["Dec"].values, unit="deg").deg
-    exofop_url="https://exofop.ipac.caltech.edu/tess/target.php?id="
     toi["url"] = toi['TIC ID'].apply(make_exofop_url)
     # plot TOI
-    chart1 = (
-        alt.Chart(toi, title="TOI")
-        .transform_calculate(
-            # FIXME: url below doesn't work in pop-up chart
-            url = exofop_url + alt.datum.TIC_ID
-        )
-        .mark_point(color="black")
-        .encode(
-            x = alt.X(
-                "RA:Q",
-                axis=alt.Axis(title="RA"),
-                scale=alt.Scale(domain=[0, 360]),
-            ),
-            y = alt.Y(
-                "Dec:Q",
-                axis=alt.Axis(title="Dec"),
-                scale=alt.Scale(domain=[-90, 90]),
-            ),
-            href='url',
-            tooltip = [
-                "TOI:Q",
-                "TIC ID:Q",
-                "url:N",
-                "Stellar Distance (pc):Q",
-                "PM RA (mas/yr):Q",
-                "PM Dec (mas/yr):Q",
-            ],
-        )
-        .properties(width=width, height=height)
-        .interactive()
-    )
+    chart1 = plot_tois(toi, width=width, height=height)
+
     # plot cluster members
     idx = df2.parallax >= min_parallax
     df2 = df2.loc[idx]
@@ -531,43 +844,34 @@ def plot_interactive(
     if thin<10:
         alt.data_transformers.disable_max_rows()
     df2 = df2.iloc[::thin, :]
-    chart2 = (
-        alt.Chart(df2)
-        .mark_circle()
-        .encode(
-            x="ra:Q",
-            y="dec:Q",
-            color="Cluster:N",
-            tooltip=[
-                "source_id:O",
-                "parallax:Q",
-                "pmra:Q",
-                "pmdec:Q",
-                "phot_g_mean_mag:Q",
-            ],
-        )
-        .properties(width=width, height=height)
-        .interactive()
-    )
+    chart2 = plot_clusters(df2, width=width, height=height)
 
     return chart2 + chart1 + chart0
 
+
 if __name__=="__main__":
-    tois = get_tois(clobber=False)
+    import panel as pn
 
-    c = ClusterCatalog(catalog_name='CantatGaudin2020')
-    cc = c.query_catalog()
+    # title = '## TOI visualization'
 
-    chart = plot_interactive(thin=5, 
+    chart = plot_interactive(
+                            catalog_name='He2022b',
+                            clobber_toi=True,
+                            thin=1,
                             min_parallax=1.5,
                             width=1600,
-                            height=800,
+                            height=900,
                             )
-
+    # to allow new browser tab pop-up
     chart['usermeta'] = {
             "embedOptions": {
             'loader': {'target': '_blank'}
             }
         }
-    print("Saved: ", outpath)
     chart.save(outpath)
+
+    # pn.Row(
+    #     pn.Column(title, ticker, window)
+    # )
+    # panel.save(outpath, embed=True)
+    print("Saved: ", outpath)
