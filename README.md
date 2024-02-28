@@ -18,9 +18,8 @@ TOI visualization plots
 ## Framework options
 - altair, panel, hvplot
 - pyscript
-  - pro: no need for webserver; (python) code integrated in html code 
+  - pro: no need for webserver; (python) code integrated in html code
   - con: html file does not render properly in local browser, except in gh-pages
 - bokeh
 - flask
 - ~~streamlit~~ does not output static html
-
