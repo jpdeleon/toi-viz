@@ -133,3 +133,7 @@ dmypy.json
 *.ipynb_checkpoints
 ./notebooks/Hunt2023_catalog.ipynb
 ./notebooks/tfop_cache.h5
+./data/CantatGaudin2020/CantatGaudin2020_tab1.txt
+./data/Perren2023/UCC_members.parquet.gz
+./notebooks/Hunt2023.ipynb
+./notebooks/tfop_cache.h5
