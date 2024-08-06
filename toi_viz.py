@@ -7,7 +7,6 @@ import matplotlib.pyplot as pl
 import requests
 import astropy.units as u
 from astropy.coordinates import Distance
-import flammkuchen as fk
 from pathlib import Path
 import itertools
 from astropy.coordinates import SkyCoord

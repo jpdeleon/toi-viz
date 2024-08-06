@@ -103,6 +103,8 @@ def get_tois(
     return d.sort_values("TOI")
 
 VIZIER_KEYS_CLUSTER_CATALOG = {
+    #regularly updated in zenodo
+    #"Perren": "https://zenodo.org/records/8250524", 
     # 3794 open clusters parameters (Hao+, 2021)
     "Hao2022": "J/A+A/660/A4",
     # c.f. Evolution of the local spiral structure of the Milky Way revealedby open clusters

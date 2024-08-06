@@ -1,0 +1,9 @@
+#python==3.9
+numpy==1.19.5
+matplotlib==3.3.4
+pytables==3.7
+flammkuchen==1.0.3
+astropy
+astroquery
+altair
+fastparquet
